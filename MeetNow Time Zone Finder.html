@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MeetNow - Time Zone Meeting Finder</title>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.1/build/global/luxon.min.js"></script>
+    <style>
+        :root {
+            --color-bg-light: #f8f9fa;
+            --color-surface-light: #ffffff;
+            --color-text-light: #1a1a1a;
+            --color-text-secondary-light: #666666;
+            --color-primary: #2563eb;
+            --color-primary-hover: #1d4ed8;
+            --color-green: #10b981;
+            --color-yellow: #f59e0b;
+            --color-red: #ef4444;
+            --color-border: #e5e7eb;
+
+            --color-bg-dark: #0f172a;
+            --color-surface-dark: #1e293b;
+            --color-text-dark: #f1f5f9;
+            --color-text-secondary-dark: #cbd5e1;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background-color: var(--color-bg-light);
+            color: var(--color-text-light);
+            transition: background-color 0.3s, color 0.3s;
+            line-height: 1.6;
+        }
+
+        body.dark-mode {
+            background-color: var(--color-bg-dark);
+            color: var(--color-text-dark);
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--color-surface-light);
+            border: 2px solid var(--color-border);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            z-index: 1000;
+            transition: transform 0.2s;
+        }
+
+        body.dark-mode .theme-toggle {
+            background: var(--color-surface-dark);
+            border-color: #334155;
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-top: 60px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--color-primary), #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: var(--color-text-secondary-light);
+            font-size: 1.1rem;
+        }
+
+        body.dark-mode .subtitle {
+            color: var(--color-text-secondary-dark);
+        }
+
+        .card {
+            background: var(--color-surface-light);
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: box-shadow 0.3s;
+        }
+
+        body.dark-mode .card {
+            background: var(--color-surface-dark);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        }
+
+        body.dark-mode .card:hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        .card h2 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: var(--color-primary);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        select, input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--color-border);
+            border-radius: 8px;
+            font-size: 1rem;
+            background: var(--color-surface-light);
+            color: var(--color-text-light);
+            transition: border-color 0.3s, background-color 0.3s;
+        }
+
+        body.dark-mode select,
+        body.dark-mode input {
+            background: #334155;
+            color: var(--color-text-dark);
+            border-color: #475569;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        body.dark-mode select:focus,
+        body.dark-mode input:focus {
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+        }
+
+        .cities-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .city-input-wrapper {
+            position: relative;
+        }
+
+        .remove-city {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--color-red);
+            cursor: pointer;
+            font-size: 20px;
+            padding: 5px;
+            display: none;
+        }
+
+        .city-input-wrapper select:focus ~ .remove-city,
+        .remove-city:hover {
+            display: block;
+        }
+
+        .add-city-btn {
+            padding: 12px;
+            background: var(--color-primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+            width: 100%;
+        }
+
+        .add-city-btn:hover {
+            background: var(--color-primary-hover);
+        }
+
+        .add-city-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .duration-input {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .duration-input input {
+            flex: 1;
+        }
+
+        .duration-input span {
+            font-weight: 600;
+        }
+
+        .find-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--color-primary), #7c3aed);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 20px;
+        }
+
+        .find-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(37, 99, 235, 0.3);
+        }
+
+        .find-btn:active {
+            transform: translateY(0);
+        }
+
+        .results-section {
+            display: none;
+        }
+
+        .results-section.show {
+            display: block;
+        }
+
+        .timeline {
+            margin: 30px 0;
+        }
+
+        .day-row {
+            margin-bottom: 25px;
+        }
+
+        .day-header {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--color-primary);
+            font-size: 1.1rem;
+        }
+
+        .overlap-bar {
+            display: flex;
+            height: 40px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 10px;
+        }
+
+        .overlap-segment {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        .overlap-segment.good {
+            background-color: var(--color-green);
+        }
+
+        .overlap-segment.okay {
+            background-color: var(--color-yellow);
+        }
+
+        .overlap-segment.bad {
+            background-color: #94a3b8;
+        }
+
+        .time-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: var(--color-text-secondary-light);
+            margin-bottom: 15px;
+        }
+
+        body.dark-mode .time-labels {
+            color: var(--color-text-secondary-dark);
+        }
+
+        .suggested-slots {
+            background: linear-gradient(135deg, var(--color-green) + '10', var(--color-primary) + '10');
+            border-left: 4px solid var(--color-green);
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+
+        body.dark-mode .suggested-slots {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(37, 99, 235, 0.1));
+        }
+
+        .slot {
+            background: var(--color-surface-light);
+            padding: 15px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+
+        body.dark-mode .slot {
+            background: #334155;
+        }
+
+        .slot-time {
+            flex: 1;
+        }
+
+        .slot-date {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary-light);
+            margin-bottom: 5px;
+        }
+
+        body.dark-mode .slot-date {
+            color: var(--color-text-secondary-dark);
+        }
+
+        .slot-times {
+            font-weight: 600;
+            color: var(--color-primary);
+        }
+
+        .copy-btn {
+            padding: 10px 16px;
+            background: var(--color-primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: background 0.3s;
+        }
+
+        .copy-btn:hover {
+            background: var(--color-primary-hover);
+        }
+
+        .copy-btn.copied {
+            background: var(--color-green);
+        }
+
+        .timezone-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid var(--color-border);
+        }
+
+        body.dark-mode .timezone-list {
+            border-top-color: #475569;
+        }
+
+        .tz-badge {
+            background: var(--color-primary);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .tz-label {
+            color: var(--color-text-secondary-light);
+            font-size: 0.85rem;
+        }
+
+        body.dark-mode .tz-label {
+            color: var(--color-text-secondary-dark);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--color-text-secondary-light);
+        }
+
+        body.dark-mode .empty-state {
+            color: var(--color-text-secondary-dark);
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .cities-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .slot {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .copy-btn {
+                width: 100%;
+                text-align: center;
+            }
+
+            .theme-toggle {
+                width: 45px;
+                height: 45px;
+                font-size: 20px;
+            }
+        }
+
+        .quality-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        .quality-indicator.good {
+            background: var(--color-green);
+        }
+
+        .quality-indicator.okay {
+            background: var(--color-yellow);
+        }
+
+        .quality-indicator.bad {
+            background: #94a3b8;
+        }
+
+        .error-message {
+            color: var(--color-red);
+            font-size: 0.9rem;
+            margin-top: 8px;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: var(--color-green);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            animation: slideIn 0.3s ease;
+            z-index: 999;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .info-box {
+            background: var(--color-primary) + '10';
+            border-left: 4px solid var(--color-primary);
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+
+        body.dark-mode .info-box {
+            background: rgba(37, 99, 235, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">🌙</button>
+
+    <div class="container">
+        <header>
+            <h1>🌍 MeetNow</h1>
+            <p class="subtitle">Find the perfect time to meet across time zones</p>
+        </header>
+
+        <div class="card">
+            <h2>📍 Select Cities & Preferences</h2>
+            <div class="info-box">
+                Pick 2-4 cities to find the best meeting times. Add custom cities by typing in the dropdown.
+            </div>
+
+            <div id="citiesContainer" class="cities-grid">
+                <div class="city-input-wrapper">
+                    <select class="city-select" data-city="0">
+                        <option value="">Select a city...</option>
+                    </select>
+                    <button class="remove-city" data-city="0">✕</button>
+                </div>
+                <div class="city-input-wrapper">
+                    <select class="city-select" data-city="1">
+                        <option value="">Select a city...</option>
+                    </select>
+                    <button class="remove-city" data-city="1">✕</button>
+                </div>
+            </div>
+
+            <button class="add-city-btn" id="addCityBtn">+ Add City (Max 4)</button>
+
+            <div class="form-group" style="margin-top: 20px;">
+                <label for="duration">⏱️ Meeting Duration (minutes):</label>
+                <div class="duration-input">
+                    <input type="number" id="duration" min="15" max="480" value="60" step="15">
+                    <span>minutes</span>
+                </div>
+            </div>
+
+            <button class="find-btn" id="findBtn">🔍 Find Best Times</button>
+        </div>
+
+        <div class="results-section" id="resultsSection">
+            <div class="card">
+                <h2>📊 7-Day Overlap Analysis</h2>
+                <div class="info-box">
+                    <strong>Green:</strong> All cities awake (9 AM - 11 PM) | <strong>Yellow:</strong> Some early/late | <strong>Gray:</strong> Poor fit
+                </div>
+
+                <div id="timeline" class="timeline"></div>
+
+                <div class="timezone-list">
+                    <span class="tz-label">Selected Time Zones:</span>
+                    <div id="tzBadges"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>✨ Suggested Meeting Slots</h2>
+                <div id="slotsContainer" class="suggested-slots"></div>
+            </div>
+        </div>
+
+        <div class="empty-state" id="emptyState" style="display: none;">
+            <p>👈 Select at least 2 cities to find meeting times</p>
+        </div>
+    </div>
+
+    <script>
+        const { DateTime, Interval } = luxon;
+
+        const CITIES = [
+            { name: 'New York', tz: 'America/New_York' },
+            { name: 'Los Angeles', tz: 'America/Los_Angeles' },
+            { name: 'London', tz: 'Europe/London' },
+            { name: 'Paris', tz: 'Europe/Paris' },
+            { name: 'Tokyo', tz: 'Asia/Tokyo' },
+            { name: 'Mumbai', tz: 'Asia/Kolkata' },
+            { name: 'Sydney', tz: 'Australia/Sydney' },
+            { name: 'Hong Kong', tz: 'Asia/Hong_Kong' },
+            { name: 'Singapore', tz: 'Asia/Singapore' },
+            { name: 'Dubai', tz: 'Asia/Dubai' },
+            { name: 'Bangkok', tz: 'Asia/Bangkok' },
+            { name: 'Istanbul', tz: 'Europe/Istanbul' },
+            { name: 'Moscow', tz: 'Europe/Moscow' },
+            { name: 'Berlin', tz: 'Europe/Berlin' },
+            { name: 'Toronto', tz: 'America/Toronto' },
+            { name: 'Mexico City', tz: 'America/Mexico_City' },
+            { name: 'São Paulo', tz: 'America/Sao_Paulo' },
+            { name: 'Buenos Aires', tz: 'America/Argentina/Buenos_Aires' },
+            { name: 'Cape Town', tz: 'Africa/Johannesburg' },
+            { name: 'Lagos', tz: 'Africa/Lagos' },
+            { name: 'Cairo', tz: 'Africa/Cairo' },
+            { name: 'Seoul', tz: 'Asia/Seoul' },
+            { name: 'Bangkok', tz: 'Asia/Bangkok' },
+            { name: 'Manila', tz: 'Asia/Manila' },
+            { name: 'Jakarta', tz: 'Asia/Jakarta' },
+            { name: 'Ho Chi Minh', tz: 'Asia/Ho_Chi_Minh' },
+            { name: 'Kuala Lumpur', tz: 'Asia/Kuala_Lumpur' },
+            { name: 'Bangalore', tz: 'Asia/Kolkata' },
+            { name: 'Delhi', tz: 'Asia/Kolkata' },
+            { name: 'Kolkata', tz: 'Asia/Kolkata' },
+            { name: 'Dubai', tz: 'Asia/Dubai' },
+            { name: 'Johannesburg', tz: 'Africa/Johannesburg' },
+            { name: 'Melbourne', tz: 'Australia/Melbourne' },
+            { name: 'Auckland', tz: 'Pacific/Auckland' },
+            { name: 'Bangkok', tz: 'Asia/Bangkok' },
+            { name: 'Chicago', tz: 'America/Chicago' },
+            { name: 'Denver', tz: 'America/Denver' },
+            { name: 'San Francisco', tz: 'America/Los_Angeles' },
+            { name: 'Seattle', tz: 'America/Los_Angeles' },
+            { name: 'Boston', tz: 'America/New_York' },
+            { name: 'Amsterdam', tz: 'Europe/Amsterdam' },
+            { name: 'Madrid', tz: 'Europe/Madrid' },
+            { name: 'Rome', tz: 'Europe/Rome' },
+            { name: 'Stockholm', tz: 'Europe/Stockholm' },
+            { name: 'Bangkok', tz: 'Asia/Bangkok' },
+            { name: 'Lisbon', tz: 'Europe/Lisbon' },
+            { name: 'Athens', tz: 'Europe/Athens' },
+            { name: 'Vienna', tz: 'Europe/Vienna' },
+            { name: 'Prague', tz: 'Europe/Prague' },
+            { name: 'Warsaw', tz: 'Europe/Warsaw' }
+        ];
+
+        let selectedCities = [null, null];
+
+        function populateCitySelects() {
+            const selects = document.querySelectorAll('.city-select');
+            selects.forEach(select => {
+                const currentValue = select.value;
+                select.innerHTML = '<option value="">Select a city...</option>';
+                CITIES.forEach(city => {
+                    const option = document.createElement('option');
+                    option.value = `${city.name}|${city.tz}`;
+                    option.textContent = city.name;
+                    select.appendChild(option);
+                });
+                if (currentValue) select.value = currentValue;
+            });
+        }
+
+        populateCitySelects();
+
+        document.querySelectorAll('.city-select').forEach(select => {
+            select.addEventListener('change', (e) => {
+                const idx = parseInt(e.target.dataset.city);
+                if (e.target.value) {
+                    const [name, tz] = e.target.value.split('|');
+                    selectedCities[idx] = { name, tz };
+                } else {
+                    selectedCities[idx] = null;
+                }
+                updateAddCityBtn();
+            });
+        });
+
+        document.querySelectorAll('.remove-city').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(e.target.dataset.city);
+                const select = document.querySelector(`[data-city="${idx}"]`);
+                select.value = '';
+                selectedCities[idx] = null;
+                updateAddCityBtn();
+            });
+        });
+
+        function updateAddCityBtn() {
+            const activeCount = selectedCities.filter(c => c !== null).length;
+            const addBtn = document.getElementById('addCityBtn');
+            addBtn.disabled = activeCount >= 4;
+            addBtn.textContent = `+ Add City (${activeCount}/4)`;
+        }
+
+        document.getElementById('addCityBtn').addEventListener('click', () => {
+            if (selectedCities.length >= 4) return;
+            selectedCities.push(null);
+            const newIdx = selectedCities.length - 1;
+            const container = document.getElementById('citiesContainer');
+            const wrapper = document.createElement('div');
+            wrapper.className = 'city-input-wrapper';
+            wrapper.innerHTML = `
+                <select class="city-select" data-city="${newIdx}">
+                    <option value="">Select a city...</option>
+                </select>
+                <button class="remove-city" data-city="${newIdx}">✕</button>
+            `;
+            container.appendChild(wrapper);
+            populateCitySelects();
+            setupSelectListeners();
+            updateAddCityBtn();
+        });
+
+        function setupSelectListeners() {
+            document.querySelectorAll('.city-select').forEach(select => {
+                select.removeEventListener('change', null);
+                select.addEventListener('change', (e) => {
+                    const idx = parseInt(e.target.dataset.city);
+                    if (e.target.value) {
+                        const [name, tz] = e.target.value.split('|');
+                        selectedCities[idx] = { name, tz };
+                    } else {
+                        selectedCities[idx] = null;
+                    }
+                    updateAddCityBtn();
+                });
+            });
+
+            document.querySelectorAll('.remove-city').forEach(btn => {
+                btn.removeEventListener('click', null);
+                btn.addEventListener('click', (e) => {
+                    const idx = parseInt(e.target.dataset.city);
+                    selectedCities.splice(idx, 1);
+                    e.target.closest('.city-input-wrapper').remove();
+                    setupSelectListeners();
+                    updateAddCityBtn();
+                });
+            });
+        }
+
+        document.getElementById('findBtn').addEventListener('click', findMeetingTimes);
+
+        function findMeetingTimes() {
+            const activeCities = selectedCities.filter(c => c !== null);
+            if (activeCities.length < 2) {
+                document.getElementById('emptyState').style.display = 'block';
+                document.getElementById('resultsSection').classList.remove('show');
+                return;
+            }
+
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('resultsSection').classList.add('show');
+
+            const duration = parseInt(document.getElementById('duration').value);
+            const timeline = generateTimeline(activeCities, duration);
+            const slots = suggestMeetingSlots(activeCities, duration);
+
+            renderTimeline(timeline, activeCities);
+            renderSlots(slots, activeCities);
+            renderTimezoneBadges(activeCities);
+        }
+
+        function generateTimeline(cities, duration) {
+            const timeline = [];
+            const today = DateTime.now().startOf('day');
+
+            for (let i = 0; i < 7; i++) {
+                const date = today.plus({ days: i });
+                const dayName = date.toFormat('ccc, MMM d');
+                const overlaps = [];
+
+                for (let hour = 0; hour < 24; hour++) {
+                    const testTime = date.set({ hour, minute: 0 });
+                    const times = cities.map(city => {
+                        return DateTime.fromJSDate(testTime.toJSDate(), { zone: city.tz });
+                    });
+
+                    const minHour = Math.min(...times.map(t => t.hour));
+                    const maxHour = Math.max(...times.map(t => t.hour));
+
+                    let quality = 'bad';
+                    if (minHour >= 9 && maxHour <= 23) quality = 'good';
+                    else if ((minHour >= 6 && maxHour <= 24) || (minHour >= 8 && maxHour <= 22)) quality = 'okay';
+
+                    overlaps.push({ hour, quality });
+                }
+
+                timeline.push({ date: dayName, overlaps });
+            }
+
+            return timeline;
+        }
+
+        function suggestMeetingSlots(cities, duration) {
+            const slots = [];
+            const today = DateTime.now().startOf('day');
+
+            for (let i = 0; i < 7 && slots.length < 3; i++) {
+                const date = today.plus({ days: i });
+
+                for (let hour = 6; hour < 23 - (duration / 60); hour++) {
+                    const testTime = date.set({ hour, minute: 0 });
+                    const times = cities.map(city => {
+                        const localTime = DateTime.fromJSDate(testTime.toJSDate(), { zone: city.tz });
+                        return { city: city.name, time: localTime, tz: city.tz };
+                    });
+
+                    const allInBusinessHours = times.every(t => t.time.hour >= 9 && t.time.hour < 18);
+                    if (allInBusinessHours) {
+                        slots.push({ date: date.toFormat('EEE, MMM d'), times });
+                        break;
+                    }
+                }
+            }
+
+            while (slots.length < 3) {
+                const date = today.plus({ days: slots.length + 4 });
+                const testTime = date.set({ hour: 12 });
+                const times = cities.map(city => {
+                    const localTime = DateTime.fromJSDate(testTime.toJSDate(), { zone: city.tz });
+                    return { city: city.name, time: localTime, tz: city.tz };
+                });
+                slots.push({ date: date.toFormat('EEE, MMM d'), times });
+            }
+
+            return slots;
+        }
+
+        function renderTimeline(timeline, cities) {
+            const timelineDiv = document.getElementById('timeline');
+            timelineDiv.innerHTML = '';
+
+            timeline.forEach(day => {
+                const dayRow = document.createElement('div');
+                dayRow.className = 'day-row';
+
+                const dayHeader = document.createElement('div');
+                dayHeader.className = 'day-header';
+                dayHeader.textContent = day.date;
+                dayRow.appendChild(dayHeader);
+
+                const timeLabels = document.createElement('div');
+                timeLabels.className = 'time-labels';
+                timeLabels.innerHTML = '<span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>23:59</span>';
+                dayRow.appendChild(timeLabels);
+
+                const overlapBar = document.createElement('div');
+                overlapBar.className = 'overlap-bar';
+
+                day.overlaps.forEach(segment => {
+                    const seg = document.createElement('div');
+                    seg.className = `overlap-segment ${segment.quality}`;
+                    seg.title = `${segment.hour}:00 - ${segment.quality}`;
+                    overlapBar.appendChild(seg);
+                });
+
+                dayRow.appendChild(overlapBar);
+                timelineDiv.appendChild(dayRow);
+            });
+        }
+
+        function renderSlots(slots, cities) {
+            const container = document.getElementById('slotsContainer');
+            container.innerHTML = '';
+
+            slots.slice(0, 3).forEach((slot, idx) => {
+                const slotDiv = document.createElement('div');
+                slotDiv.className = 'slot';
+
+                const timeDiv = document.createElement('div');
+                timeDiv.className = 'slot-time';
+                const dateDiv = document.createElement('div');
+                dateDiv.className = 'slot-date';
+                dateDiv.textContent = slot.date;
+                const timesDiv = document.createElement('div');
+                timesDiv.className = 'slot-times';
+
+                const timeStrings = slot.times.map(t => `${t.time.toFormat('h:mm a')} ${t.tz.split('/')[1]}`).join(' / ');
+                timesDiv.textContent = timeStrings;
+
+                timeDiv.appendChild(dateDiv);
+                timeDiv.appendChild(timesDiv);
+                slotDiv.appendChild(timeDiv);
+
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'copy-btn';
+                copyBtn.textContent = '📋 Copy Invite';
+
+                const inviteText = `Join the meeting at:\n${slot.times.map(t => `${t.time.toFormat('h:mm a')} ${t.tz.split('/')[1] || t.tz}`).join('\n')}\n\nZoom link: [Add your link]`;
+
+                copyBtn.addEventListener('click', () => {
+                    navigator.clipboard.writeText(inviteText).then(() => {
+                        copyBtn.textContent = '✓ Copied!';
+                        copyBtn.classList.add('copied');
+                        setTimeout(() => {
+                            copyBtn.textContent = '📋 Copy Invite';
+                            copyBtn.classList.remove('copied');
+                        }, 2000);
+                        showToast('Invite text copied to clipboard!');
+                    });
+                });
+
+                slotDiv.appendChild(copyBtn);
+                container.appendChild(slotDiv);
+            });
+        }
+
+        function renderTimezoneBadges(cities) {
+            const container = document.getElementById('tzBadges');
+            container.innerHTML = '';
+            cities.forEach(city => {
+                const badge = document.createElement('span');
+                badge.className = 'tz-badge';
+                badge.textContent = `${city.name} (${city.tz.split('/')[1] || city.tz})`;
+                container.appendChild(badge);
+            });
+        }
+
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        document.getElementById('themeToggle').addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+            updateThemeToggle();
+        });
+
+        function updateThemeToggle() {
+            const toggle = document.getElementById('themeToggle');
+            toggle.textContent = document.body.classList.contains('dark-mode') ? '☀️' : '🌙';
+        }
+
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.body.classList.add('dark-mode');
+        }
+        updateThemeToggle();
+
+        updateAddCityBtn();
+    </script>
+</body>
+</html>
